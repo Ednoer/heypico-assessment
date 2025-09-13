@@ -6,7 +6,7 @@ import { GoogleMapsService } from '../services/google';
 const router = Router();
 
 const requestSchema = z.object({
-  prompt: z.string().min(3, 'Prompt terlalu pendek'),
+  prompt: z.string().min(3, 'Prompt is too short'),
   longitude: z.number().optional(),
   latitude: z.number().optional(),
 });
@@ -23,8 +23,8 @@ router.post('/', async (req, res) => {
   const { prompt, longitude, latitude } = parsed.data;
 
   try {
-    // Instruksikan LLM agar mengembalikan JSON persis sesuai skema yang diminta
-    let systemPrompt = `Balas HANYA JSON valid tanpa teks lain dengan format:
+    // Instruct the LLM to return JSON exactly according to the requested schema
+    let systemPrompt = `Reply ONLY with valid JSON in the following format:
     {
       "queries": [
         {
@@ -40,10 +40,10 @@ router.post('/', async (req, res) => {
         }
       ]
     }
-    Maksimal 5 item`;
+    Maximum 5 items, use Google Maps coordinates for longitude and latitude.`;
     
     if(longitude && latitude) {
-        systemPrompt = `Balas HANYA JSON valid tanpa teks lain dengan format:
+        systemPrompt = `Reply ONLY with valid JSON in the following format:
         {
           "queries": [
             {
@@ -59,12 +59,12 @@ router.post('/', async (req, res) => {
             }
           ]
         }
-        Maksimal 5 item, lokasi saya adalah ${longitude}, ${latitude}.`;
+        Maximum 5 items, my location is ${longitude}, ${latitude}. Use Google Maps coordinates for longitude and latitude.`;
     }
     
-    const completion = await deepseek.complete(`${systemPrompt}\nPerintah: ${prompt}`);
+    const completion = await deepseek.complete(`${systemPrompt}\nInstruction: ${prompt}`);
 
-    // Parse JSON dari LLM
+    // Parse JSON from LLM
     let payload: any = { queries: [] };
     try {
       const jsonStart = completion.indexOf('{');
@@ -77,7 +77,7 @@ router.post('/', async (req, res) => {
 
     const rawQueries: any[] = Array.isArray(payload?.queries) ? payload.queries.slice(0, 5) : [];
 
-    // Lengkapi koordinat bila kosong dengan geocoding berdasarkan nama+wilayah
+    // Complete coordinates if missing using geocoding based on name+region
     const enriched: any[] = await Promise.all(
       rawQueries.map(async (q, idx) => {
         const id = typeof q?.id === 'number' ? q.id : idx + 1;
@@ -106,15 +106,15 @@ router.post('/', async (req, res) => {
       })
     );
 
-    // Hitung radius dari koordinat pertama (jika ada)
+    // Calculate radius from the first coordinate (if any)
     let radius = 0;
     if (enriched.length > 0) {
       const firstLat = enriched[0].latitude;
       const firstLng = enriched[0].longitude;
       
-      // Hitung jarak maksimal dari koordinat pertama ke semua titik
+      // Calculate the maximum distance from the first coordinate to all points
       const distances = enriched.map(q => {
-        const R = 6371; // Radius bumi dalam km
+        const R = 6371; // Earth's radius in km
         const dLat = (q.latitude - firstLat) * Math.PI / 180;
         const dLng = (q.longitude - firstLng) * Math.PI / 180;
         const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
@@ -128,10 +128,10 @@ router.post('/', async (req, res) => {
 
     return res.json({ 
       queries: enriched,
-      radius: Math.round(radius * 100) / 100 // Bulatkan ke 2 desimal
+      radius: Math.round(radius * 100) / 100 // Round to 2 decimals
     });
   } catch (err: any) {
-    return res.status(500).json({ error: err.message || 'Gagal memproses permintaan' });
+    return res.status(500).json({ error: err.message || 'Failed to process request' });
   }
 });
 

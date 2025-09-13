@@ -44,6 +44,8 @@ export class DeepSeekService {
           timeout: this.timeoutMs,
         }
       );
+
+      console.log('DeepSeek response:', response.data);
       return response.data.choices?.[0]?.message?.content ?? '';
     } catch (err) {
       const error = err as AxiosError<any> & { code?: string };
