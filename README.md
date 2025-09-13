@@ -105,7 +105,7 @@ Below are example screenshots of the frontend UI:
 
 | Search Results Page | Place Details Page |
 |--------------------|-------------------|
-| ![Search Results](./frontend/screenshot-1.png) | ![Place Details](./frontend/screenshot-2.png) |
+| ![Search Results](./screenshot-1.png) | ![Place Details](./screenshot-2.png) |
 
 ---
 
